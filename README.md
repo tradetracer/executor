@@ -117,16 +117,16 @@ Adapters connect the executor to brokers. The interface:
 | `disconnect()` | Clean up connection |
 | `execute_buy(symbol, shares, price)` | Execute buy, return fill details |
 | `execute_sell(symbol, shares, price)` | Execute sell, return fill details |
-| `get_quote(symbol)` | Return current quote or None |
+| `fetch_quote(symbol, eod_last_price)` | Return current quote or None |
 
-### get_quote()
+### fetch_quote()
 
 Returns current price data for a symbol. Used for:
 - **Order execution** - accurate prices for buy/sell orders
 - **Intraday trading** - real-time quotes between market open/close
 
 ```python
-def get_quote(self, symbol: str) -> dict | None:
+def fetch_quote(self, symbol: str, eod_last_price: float | None) -> dict | None:
     return {
         "open": 185.00,
         "high": 187.50,
@@ -138,7 +138,9 @@ def get_quote(self, symbol: str) -> dict | None:
     }
 ```
 
-**Return None** if unavailable (e.g., sandbox mode, market closed).
+The `eod_last_price` is the latest EOD close from TradeTracer. Broker adapters can ignore it and fetch real data; the sandbox adapter uses it to simulate price movement.
+
+**Return None** if unavailable (e.g., market closed).
 TradeTracer falls back to EOD cache.
 
 ### execute_buy() / execute_sell()
@@ -199,7 +201,7 @@ class MyBrokerAdapter(BaseAdapter):
             }
         return {"success": False, "error": result.error}
 
-    def get_quote(self, symbol: str) -> dict | None:
+    def fetch_quote(self, symbol: str, eod_last_price: float | None) -> dict | None:
         quote = self.client.get_quote(symbol)
         if not quote:
             return None  # TradeTracer uses EOD cache
@@ -228,5 +230,5 @@ MIT License - see [LICENSE](LICENSE) for details.
 ## Links
 
 - [TradeTracer](https://tradetracer.ai) - Build and backtest trading strategies
-- [Documentation](https://tradetracer.ai/docs/executor) - Full documentation
+- [Documentation](https://tradetracer.github.io/executor/) - Full documentation
 - [GitHub Issues](https://github.com/tradetracer/executor/issues) - Report bugs
