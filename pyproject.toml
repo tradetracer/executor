@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tradetracer-executor"
+version = "0.1.0"
+description = "Execute TradeTracer trading strategies with your broker"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "TradeTracer", email = "info@tradetracer.ai"}
+]
+keywords = ["trading", "automation", "stocks", "broker"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "requests>=2.28.0",
+    "flask>=3.0.0",
+]
+
+[project.optional-dependencies]
+ibkr = ["ib_insync>=0.9.86"]
+dev = [
+    "pytest>=8.0.0",
+    "mkdocs>=1.5.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.24.0",
+]
+
+[project.urls]
+Homepage = "https://tradetracer.ai"
+Repository = "https://github.com/tradetracer/executor"
+Documentation = "https://tradetracer.ai/docs/executor"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.setuptools.packages.find]
+include = ["executor*", "adapters*", "web*"]

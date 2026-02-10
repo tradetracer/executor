@@ -1,0 +1,70 @@
+site_name: TradeTracer Executor
+site_url: https://tradetracer.github.io/executor
+repo_url: https://github.com/tradetracer/executor
+repo_name: tradetracer/executor
+
+theme:
+  name: material
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  palette:
+    scheme: slate
+    primary: custom
+    accent: custom
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - content.code.annotate
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            docstring_options:
+              returns_multiple_items: false
+            show_source: true
+            show_root_heading: true
+            show_root_full_path: false
+            heading_level: 2
+            members_order: source
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Reference:
+      - Adapters:
+          - Overview: reference/adapters.md
+          - Base Adapter: reference/base-adapter.md
+          - Sandbox: reference/sandbox.md
+          - Interactive Brokers: reference/ibkr.md
+      - Executor:
+          - Main Loop: reference/executor.md
+          - Configuration: reference/config.md
+          - Transactions: reference/transactions.md
+      - Web UI: reference/web.md
+  - Custom Adapters: custom-adapters.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - attr_list
+  - toc:
+      permalink: true

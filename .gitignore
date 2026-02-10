@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Data (user config, not in repo)
+/data/
+*.db
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docs
+site/

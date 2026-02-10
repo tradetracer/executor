@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TradeTracer Executor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <a href="https://tradetracer.ai" target="_blank" class="logo">
+                <img src="/static/logo.png" alt="TradeTracer" class="logo-img">
+                <span class="logo-text">TradeTracer Executor</span>
+            </a>
+            <div class="status-badge" id="status-badge">
+                <span class="status-dot"></span>
+                <span class="status-text">Stopped</span>
+            </div>
+        </header>
+
+        <!-- Tabs -->
+        <nav class="tabs">
+            <button class="tab" id="tab-live" disabled>Live</button>
+            <button class="tab active" id="tab-config">Config</button>
+        </nav>
+
+        <main class="main">
+            <!-- Live Tab -->
+            <div class="tab-content" id="content-live" style="display: none;">
+                <!-- Control Section -->
+                <section class="card">
+                    <h2>Executor Control</h2>
+                    <div class="control-buttons">
+                        <button id="start-btn" class="btn btn-primary">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                            </svg>
+                            Start
+                        </button>
+                        <button id="stop-btn" class="btn btn-danger" disabled>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="6" y="6" width="12" height="12"></rect>
+                            </svg>
+                            Stop
+                        </button>
+                    </div>
+                    <div class="stats" id="stats">
+                        <div class="stat">
+                            <span class="stat-label">Ticks</span>
+                            <span class="stat-value" id="tick-count">0</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Pending TX</span>
+                            <span class="stat-value" id="pending-count">0</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Last Tick</span>
+                            <span class="stat-value" id="last-tick">Never</span>
+                        </div>
+                        <div class="stat" id="error-stat">
+                            <span class="stat-label">Tick Errors</span>
+                            <span class="stat-value" id="error-count">0</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Workers Section -->
+                <section class="card">
+                    <h2>Strategy Workers</h2>
+                    <div id="workers-container">
+                        <div class="workers-empty">No workers yet. Start the executor to see active workers.</div>
+                    </div>
+                </section>
+
+                <!-- Logs Section -->
+                <section class="card logs-card">
+                    <h2>
+                        Executor Logs
+                        <button id="clear-logs-btn" class="btn-icon" title="Clear logs">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                            </svg>
+                        </button>
+                    </h2>
+                    <pre id="logs"></pre>
+                </section>
+            </div>
+
+            <!-- Config Tab -->
+            <div class="tab-content" id="content-config">
+                <!-- Connection Section -->
+                <section class="card">
+                    <h2>TradeTracer Connection</h2>
+                    <form id="connection-form">
+                        <div class="form-group">
+                            <label for="api_key">API Key</label>
+                            <input
+                                type="password"
+                                id="api_key"
+                                name="api_key"
+                                value="{{ config.api_key if config.api_key else '' }}"
+                                placeholder="Enter your TradeTracer model API key"
+                            >
+                            <span class="field-error" id="api_key-error"></span>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="api_url">API URL</label>
+                                <input
+                                    type="text"
+                                    id="api_url"
+                                    name="api_url"
+                                    value="{{ config.api_url }}"
+                                >
+                                <span class="field-error" id="api_url-error"></span>
+                            </div>
+                            <div class="form-group">
+                                <label for="poll_interval">Poll Interval (seconds)</label>
+                                <input
+                                    type="number"
+                                    id="poll_interval"
+                                    name="poll_interval"
+                                    value="{{ config.poll_interval }}"
+                                    min="1"
+                                >
+                                <span class="field-error" id="poll_interval-error"></span>
+                            </div>
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Adapter Section -->
+                <section class="card">
+                    <h2>Broker Adapter</h2>
+                    <form id="adapter-form">
+                        <div class="form-group">
+                            <label for="adapter">Adapter</label>
+                            <select id="adapter" name="adapter">
+                                {% for adapter in adapters %}
+                                <option value="{{ adapter }}" {{ 'selected' if adapter == config.adapter else '' }}>
+                                    {{ adapter | title }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div id="adapter-fields">
+                            {% for field in adapter_fields %}
+                            <div class="form-group">
+                                <label for="adapter_{{ field.name }}">{{ field.label }}</label>
+                                {% if field.type == 'checkbox' %}
+                                <input
+                                    type="checkbox"
+                                    id="adapter_{{ field.name }}"
+                                    name="{{ field.name }}"
+                                    {{ 'checked' if config.adapter_config.get(field.name, field.get('default', False)) else '' }}
+                                >
+                                {% elif field.type == 'number' %}
+                                <input
+                                    type="number"
+                                    id="adapter_{{ field.name }}"
+                                    name="{{ field.name }}"
+                                    value="{{ config.adapter_config.get(field.name, field.get('default', '')) }}"
+                                >
+                                {% elif field.type == 'password' %}
+                                <input
+                                    type="password"
+                                    id="adapter_{{ field.name }}"
+                                    name="{{ field.name }}"
+                                    value="{{ config.adapter_config.get(field.name, '') }}"
+                                >
+                                {% else %}
+                                <input
+                                    type="text"
+                                    id="adapter_{{ field.name }}"
+                                    name="{{ field.name }}"
+                                    value="{{ config.adapter_config.get(field.name, field.get('default', '')) }}"
+                                >
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </form>
+                </section>
+
+                <!-- Save Button -->
+                <section class="card">
+                    <button id="save-btn" class="btn btn-primary btn-full">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        Save Configuration
+                    </button>
+                    <p class="help-text" id="config-status"></p>
+                </section>
+            </div>
+        </main>
+
+        <footer class="footer">
+            <a href="https://tradetracer.ai" target="_blank">TradeTracer.ai</a>
+            <span>|</span>
+            <a href="https://github.com/tradetracer/executor" target="_blank">GitHub</a>
+            <span>|</span>
+            <a href="https://tradetracer.ai/terms" target="_blank">Terms</a>
+        </footer>
+    </div>
+
+    <script>
+        // State
+        let isRunning = false;
+        let configValid = false;
+        let adapterFields = {};
+        let lastKnownErrorCount = 0;
+        let lastLogMessage = null;
+        let initialLoad = true;
+        let statusInterval = null;
+        let statusIntervalMs = 0;
+
+        // Elements
+        const statusBadge = document.getElementById('status-badge');
+        const startBtn = document.getElementById('start-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const saveBtn = document.getElementById('save-btn');
+        const logsEl = document.getElementById('logs');
+        const adapterSelect = document.getElementById('adapter');
+        const adapterFieldsContainer = document.getElementById('adapter-fields');
+        const tabLive = document.getElementById('tab-live');
+        const tabConfig = document.getElementById('tab-config');
+        const contentLive = document.getElementById('content-live');
+        const contentConfig = document.getElementById('content-config');
+        const configStatus = document.getElementById('config-status');
+
+        // Tab switching
+        function switchTab(tab) {
+            if (tab === 'live' && !configValid) return;
+
+            tabLive.classList.toggle('active', tab === 'live');
+            tabConfig.classList.toggle('active', tab === 'config');
+            contentLive.style.display = tab === 'live' ? 'block' : 'none';
+            contentConfig.style.display = tab === 'config' ? 'block' : 'none';
+        }
+
+        tabLive.onclick = () => switchTab('live');
+        tabConfig.onclick = () => switchTab('config');
+
+        function updateConfigValid(valid) {
+            configValid = valid;
+            tabLive.disabled = !valid;
+            if (valid) {
+                configStatus.textContent = 'Configuration saved. Switch to Live tab to start.';
+                configStatus.className = 'help-text success';
+            } else {
+                configStatus.textContent = 'Enter your API Key and save.';
+                configStatus.className = 'help-text';
+            }
+        }
+
+        // Logging
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '[ERROR]' : type === 'success' ? '[OK]' : '[INFO]';
+            const key = prefix + ' ' + message;
+            const line = `${time} ${prefix} ${message}`;
+
+            if (key === lastLogMessage) {
+                // Same message — replace last line with updated timestamp
+                const lines = logsEl.textContent.trimEnd().split('\n');
+                lines[lines.length - 1] = line;
+                logsEl.textContent = lines.join('\n') + '\n';
+            } else {
+                logsEl.textContent += line + '\n';
+                lastLogMessage = key;
+            }
+            logsEl.scrollTop = logsEl.scrollHeight;
+        }
+
+        document.getElementById('clear-logs-btn').onclick = () => {
+            logsEl.textContent = '';
+        };
+
+        // Worker cards
+        const workersContainer = document.getElementById('workers-container');
+
+        function renderWorkers(workers) {
+            const symbols = Object.keys(workers);
+            if (symbols.length === 0) {
+                workersContainer.innerHTML = '<div class="workers-empty">No workers yet. Start the executor to see active workers.</div>';
+                return;
+            }
+
+            // Build or update cards
+            for (const symbol of symbols) {
+                const cardId = 'worker-' + symbol.replace(/[^a-zA-Z0-9]/g, '_');
+                let card = document.getElementById(cardId);
+
+                if (!card) {
+                    // First time: create grid if needed
+                    if (!workersContainer.querySelector('.workers-grid')) {
+                        workersContainer.innerHTML = '<div class="workers-grid"></div>';
+                    }
+                    const grid = workersContainer.querySelector('.workers-grid');
+                    card = document.createElement('div');
+                    card.id = cardId;
+                    card.className = 'worker-card';
+                    card.innerHTML = `
+                        <div class="worker-header">
+                            <span class="worker-symbol">${symbol}</span>
+                            <span class="worker-price">--</span>
+                            <button class="worker-clear-btn btn-icon" title="Clear logs">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <polyline points="3 6 5 6 21 6"></polyline>
+                                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="worker-logs"></div>`;
+                    card.querySelector('.worker-clear-btn').onclick = async () => {
+                        await fetch('/api/workers/' + encodeURIComponent(symbol) + '/logs', { method: 'DELETE' });
+                        card.querySelector('.worker-logs').textContent = 'No output';
+                    };
+                    grid.appendChild(card);
+                }
+
+                // Update price
+                const w = workers[symbol];
+                const price = w.price != null ? '$' + Number(w.price).toFixed(2) : '--';
+                card.querySelector('.worker-price').textContent = price;
+
+                // Update logs preserving scroll position
+                const logsDiv = card.querySelector('.worker-logs');
+                const wasAtBottom = logsDiv.scrollHeight - logsDiv.scrollTop - logsDiv.clientHeight < 5;
+                const lines = workers[symbol].logs || [];
+                logsDiv.textContent = lines.join('\n') || 'No output';
+                if (wasAtBottom) {
+                    logsDiv.scrollTop = logsDiv.scrollHeight;
+                }
+            }
+        }
+
+        // Status updates
+        function updateStatus(status) {
+            isRunning = status.running;
+            updateConfigValid(status.config_valid);
+
+            statusBadge.className = 'status-badge ' + (isRunning ? 'running' : 'stopped');
+            statusBadge.querySelector('.status-text').textContent = isRunning ? 'Running' : 'Stopped';
+
+            startBtn.disabled = isRunning;
+            stopBtn.disabled = !isRunning;
+
+            document.getElementById('tick-count').textContent = status.tick_count || 0;
+            document.getElementById('pending-count').textContent = status.pending_transactions || 0;
+
+            // Error count + styling
+            const errorCount = status.error_count || 0;
+            document.getElementById('error-count').textContent = errorCount;
+            document.getElementById('error-stat').className = 'stat' + (errorCount > 0 ? ' stat-danger' : '');
+
+            // Log errors (reset tracking if executor restarted)
+            if (status.error_count < lastKnownErrorCount) {
+                lastKnownErrorCount = 0;
+            }
+            if (status.error_count > lastKnownErrorCount && status.last_error) {
+                lastKnownErrorCount = status.error_count;
+                log(status.last_error, 'error');
+            }
+
+            if (status.last_tick_time) {
+                const date = new Date(status.last_tick_time * 1000);
+                document.getElementById('last-tick').textContent = date.toLocaleTimeString();
+            }
+
+            // Update worker cards
+            renderWorkers(status.workers || {});
+
+            // Sync refresh rate with poll interval
+            const pollMs = (status.poll_interval || 5) * 1000;
+            if (pollMs !== statusIntervalMs) {
+                clearInterval(statusInterval);
+                statusInterval = setInterval(fetchStatus, pollMs);
+                statusIntervalMs = pollMs;
+            }
+
+            // Auto-switch to live on initial page load if config is valid
+            if (initialLoad && configValid) {
+                initialLoad = false;
+                switchTab('live');
+            }
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/status');
+                const status = await res.json();
+                updateStatus(status);
+            } catch (e) {
+                log('Failed to fetch status', 'error');
+            }
+        }
+
+        // Load adapter fields
+        async function loadAdapterFields() {
+            try {
+                const res = await fetch('/api/adapters');
+                adapterFields = await res.json();
+            } catch (e) {
+                log('Failed to load adapters', 'error');
+            }
+        }
+
+        function renderAdapterFields(adapterType) {
+            const fields = adapterFields[adapterType] || [];
+            adapterFieldsContainer.innerHTML = fields.map(field => {
+                let input = '';
+                if (field.type === 'checkbox') {
+                    input = `<input type="checkbox" id="adapter_${field.name}" name="${field.name}" ${field.default ? 'checked' : ''}>`;
+                } else if (field.type === 'number') {
+                    input = `<input type="number" id="adapter_${field.name}" name="${field.name}" value="${field.default || ''}">`;
+                } else if (field.type === 'password') {
+                    input = `<input type="password" id="adapter_${field.name}" name="${field.name}" value="">`;
+                } else {
+                    input = `<input type="text" id="adapter_${field.name}" name="${field.name}" value="${field.default || ''}">`;
+                }
+                return `<div class="form-group"><label for="adapter_${field.name}">${field.label}</label>${input}</div>`;
+            }).join('');
+        }
+
+        adapterSelect.onchange = () => {
+            renderAdapterFields(adapterSelect.value);
+        };
+
+        // Validation helpers
+        function clearErrors() {
+            document.querySelectorAll('.field-error').forEach(el => el.textContent = '');
+            document.querySelectorAll('input.error').forEach(el => el.classList.remove('error'));
+        }
+
+        function setError(fieldId, message) {
+            const input = document.getElementById(fieldId);
+            const errorEl = document.getElementById(fieldId + '-error');
+            if (input) input.classList.add('error');
+            if (errorEl) errorEl.textContent = message;
+        }
+
+        function validateConfig() {
+            clearErrors();
+            let valid = true;
+
+            const apiKey = document.getElementById('api_key').value.trim();
+            const apiUrl = document.getElementById('api_url').value.trim();
+            const pollIntervalStr = document.getElementById('poll_interval').value.trim();
+
+            if (!apiKey) {
+                setError('api_key', 'API Key is required');
+                valid = false;
+            }
+
+            if (!apiUrl) {
+                setError('api_url', 'API URL is required');
+                valid = false;
+            }
+
+            if (!pollIntervalStr) {
+                setError('poll_interval', 'Poll interval is required');
+                valid = false;
+            } else {
+                const pollInterval = parseInt(pollIntervalStr, 10);
+                if (isNaN(pollInterval) || pollInterval.toString() !== pollIntervalStr) {
+                    setError('poll_interval', 'Must be a whole number');
+                    valid = false;
+                } else if (pollInterval < 1) {
+                    setError('poll_interval', 'Must be at least 1 second');
+                    valid = false;
+                }
+            }
+
+            return valid;
+        }
+
+        // Save config
+        saveBtn.onclick = async () => {
+            if (!validateConfig()) {
+                return;
+            }
+
+            const adapterConfig = {};
+            const fields = adapterFields[adapterSelect.value] || [];
+            fields.forEach(field => {
+                const el = document.getElementById(`adapter_${field.name}`);
+                if (el) {
+                    if (field.type === 'checkbox') {
+                        adapterConfig[field.name] = el.checked;
+                    } else if (field.type === 'number') {
+                        adapterConfig[field.name] = parseFloat(el.value) || field.default || 0;
+                    } else {
+                        adapterConfig[field.name] = el.value;
+                    }
+                }
+            });
+
+            const config = {
+                api_key: document.getElementById('api_key').value.trim(),
+                api_url: document.getElementById('api_url').value.trim(),
+                poll_interval: parseInt(document.getElementById('poll_interval').value, 10),
+                adapter: adapterSelect.value,
+                adapter_config: adapterConfig,
+            };
+
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(config),
+                });
+                if (res.ok) {
+                    updateConfigValid(true);
+                    log('Configuration saved', 'success');
+
+                    // Animate button to show success
+                    saveBtn.classList.add('btn-saved');
+                    saveBtn.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Saved!
+                    `;
+                    saveBtn.disabled = true;
+
+                    // Switch to Live tab after brief delay
+                    setTimeout(() => {
+                        saveBtn.classList.remove('btn-saved');
+                        saveBtn.disabled = false;
+                        saveBtn.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                                <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                                <polyline points="7 3 7 8 15 8"></polyline>
+                            </svg>
+                            Save Configuration
+                        `;
+                        switchTab('live');
+                    }, 800);
+                } else {
+                    configStatus.textContent = 'Failed to save configuration';
+                    configStatus.className = 'help-text error';
+                }
+            } catch (e) {
+                configStatus.textContent = 'Failed to save configuration';
+                configStatus.className = 'help-text error';
+            }
+        };
+
+        // Start executor
+        startBtn.onclick = async () => {
+            startBtn.disabled = true;
+            log('Starting executor...');
+
+            try {
+                const res = await fetch('/api/start', { method: 'POST' });
+                const data = await res.json();
+
+                if (res.ok) {
+                    log('Executor started', 'success');
+                    fetchStatus();
+                } else {
+                    log(data.error || 'Failed to start', 'error');
+                    startBtn.disabled = false;
+                }
+            } catch (e) {
+                log('Failed to start executor', 'error');
+                startBtn.disabled = false;
+            }
+        };
+
+        // Stop executor
+        stopBtn.onclick = async () => {
+            stopBtn.disabled = true;
+            log('Stopping executor...');
+
+            try {
+                const res = await fetch('/api/stop', { method: 'POST' });
+                const data = await res.json();
+
+                if (res.ok) {
+                    log('Executor stopped', 'success');
+                    fetchStatus();
+                } else {
+                    log(data.error || 'Failed to stop', 'error');
+                    stopBtn.disabled = false;
+                }
+            } catch (e) {
+                log('Failed to stop executor', 'error');
+                stopBtn.disabled = false;
+            }
+        };
+
+        // Initialize
+        loadAdapterFields();
+        fetchStatus();
+        statusInterval = setInterval(fetchStatus, 5000);
+        statusIntervalMs = 5000;
+    </script>
+</body>
+</html>
