@@ -126,7 +126,7 @@ Returns current price data for a symbol. Used for:
 - **Intraday trading** - real-time quotes between market open/close
 
 ```python
-def fetch_quote(self, symbol: str, eod_last_price: float | None) -> dict | None:
+def fetch_quote(self, symbol: str, eod_last_price: float | None) -> Quote | None:
     return {
         "open": 185.00,
         "high": 187.50,
@@ -158,7 +158,7 @@ Returns fill details on success, error on failure:
 ## Creating Custom Adapters
 
 ```python
-from adapters.base import BaseAdapter
+from adapters.base import BaseAdapter, Quote
 
 class MyBrokerAdapter(BaseAdapter):
     def __init__(self, api_key: str = "", **kwargs):
@@ -201,7 +201,7 @@ class MyBrokerAdapter(BaseAdapter):
             }
         return {"success": False, "error": result.error}
 
-    def fetch_quote(self, symbol: str, eod_last_price: float | None) -> dict | None:
+    def fetch_quote(self, symbol: str, eod_last_price: float | None) -> Quote | None:
         quote = self.client.get_quote(symbol)
         if not quote:
             return None  # TradeTracer uses EOD cache

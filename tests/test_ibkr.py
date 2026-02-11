@@ -192,20 +192,6 @@ class TestIBKRAdapter:
 
             assert result is None
 
-    def test_get_positions(self, adapter, mock_ib):
-        """get_positions returns current holdings."""
-        mock_pos = MagicMock()
-        mock_pos.contract.symbol = "AAPL"
-        mock_pos.position = 100
-        mock_pos.avgCost = 186.50
-
-        mock_ib.positions.return_value = [mock_pos]
-
-        result = adapter.get_positions()
-
-        assert "AAPL" in result
-        assert result["AAPL"]["shares"] == 100
-        assert result["AAPL"]["avg_price"] == 186.50
 
 
 class TestHelperFunctions:

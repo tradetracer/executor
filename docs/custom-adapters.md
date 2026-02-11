@@ -7,7 +7,7 @@ How to connect the executor to your broker.
 Inherit from [`BaseAdapter`](reference/base-adapter.md) and implement all abstract methods:
 
 ```python
-from adapters.base import BaseAdapter
+from adapters.base import BaseAdapter, Quote
 
 class MyBrokerAdapter(BaseAdapter):
     def __init__(self, api_key: str = "", **kwargs):
@@ -50,7 +50,7 @@ class MyBrokerAdapter(BaseAdapter):
             }
         return {"success": False, "error": result.error}
 
-    def get_quote(self, symbol: str) -> dict | None:
+    def fetch_quote(self, symbol: str, eod_last_price: float | None) -> Quote | None:
         quote = self.client.get_quote(symbol)
         if not quote:
             return None
@@ -86,7 +86,7 @@ ADAPTERS["my_broker"] = MyBrokerAdapter
 {"success": False, "error": "Insufficient funds"}
 ```
 
-### get_quote
+### fetch_quote
 
 ```python
 # Available
