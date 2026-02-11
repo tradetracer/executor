@@ -284,6 +284,11 @@
             logsEl.textContent = '';
         };
 
+        // Pause polling while mouse is down so selections aren't disrupted
+        let pollingPaused = false;
+        document.addEventListener('mousedown', () => { pollingPaused = true; });
+        document.addEventListener('mouseup', () => { pollingPaused = false; });
+
         // Worker cards
         const workersContainer = document.getElementById('workers-container');
 
@@ -395,6 +400,7 @@
         }
 
         async function fetchStatus() {
+            if (pollingPaused) return;
             try {
                 const res = await fetch('/api/status');
                 const status = await res.json();

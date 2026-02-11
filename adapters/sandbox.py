@@ -35,6 +35,7 @@ class SandboxAdapter(BaseAdapter):
 
     def __init__(self, **kwargs):
         self._last_prices: dict[str, float] = {}
+        self._session: dict[str, dict] = {}  # {symbol: {open, high, low}}
 
     @classmethod
     def get_config_fields(cls) -> list[ConfigField]:
@@ -58,6 +59,7 @@ class SandboxAdapter(BaseAdapter):
     def disconnect(self) -> None:
         """Disconnect from sandbox."""
         self._last_prices.clear()
+        self._session.clear()
 
     def execute_buy(self, symbol: str, shares: int, price: float) -> FillResult:
         """
@@ -122,11 +124,29 @@ class SandboxAdapter(BaseAdapter):
         base = self._last_prices.get(symbol, eod_last_price)
         step = random.uniform(-0.005, 0.005)
         price = round(base * (1 + step), 2)
-        spread = round(price * 0.0001, 2) or 0.01
         self._last_prices[symbol] = price
 
+        # Track intraday session (open/high/low)
+        if symbol not in self._session:
+            self._session[symbol] = {"open": price, "high": price, "low": price}
+        sess = self._session[symbol]
+        sess["high"] = max(sess["high"], price)
+        sess["low"] = min(sess["low"], price)
+
+        # Spread: 0.01-0.05% of price, varies per tick
+        spread_pct = random.uniform(0.0001, 0.0005)
+        half_spread = round(price * spread_pct, 2) or 0.01
+
+        # Bid/ask: last trade (close) is between bid and ask
+        bid = round(price - half_spread, 2)
+        ask = round(price + half_spread, 2)
+
         return {
+            "open": sess["open"],
+            "high": sess["high"],
+            "low": sess["low"],
             "close": price,
-            "bid": round(price - spread, 2),
-            "ask": round(price + spread, 2),
+            "volume": random.randint(100, 5000),
+            "bid": bid,
+            "ask": ask,
         }
