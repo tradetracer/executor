@@ -72,7 +72,7 @@
                 <section class="card">
                     <h2>Strategy Workers</h2>
                     <div id="workers-container">
-                        <div class="workers-empty">Waiting for workers. Workers are spawned by TradeTracer according to your model's schedule. You can also spawn workers manually from the TradeTracer dashboard.</div>
+                        <div class="workers-empty">Waiting for workers. Workers are spawned by TradeTracer according to your model schedule. You can also spawn workers manually from the TradeTracer dashboard.</div>
                     </div>
                 </section>
 
@@ -295,7 +295,7 @@
         function renderWorkers(workers) {
             const symbols = Object.keys(workers);
             if (symbols.length === 0) {
-                workersContainer.innerHTML = '<div class="workers-empty">Waiting for workers. Workers are spawned by TradeTracer according to your model's schedule. You can also spawn workers manually from the TradeTracer dashboard.</div>';
+                workersContainer.innerHTML = '<div class="workers-empty">Waiting for workers. Workers are spawned by TradeTracer according to your model schedule. You can also spawn workers manually from the TradeTracer dashboard.</div>';
                 return;
             }
 
