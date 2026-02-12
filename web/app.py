@@ -145,8 +145,10 @@ def register_routes(app: Flask) -> None:
 
             _executor = Executor(app.config["CONFIG_PATH"])
 
-            if not _executor.start():
-                return jsonify({"error": "Failed to start"}), 500
+            error = _executor.start()
+            if error:
+                _executor = None
+                return jsonify({"error": error}), 500
 
             # Run in background thread
             def run_loop():

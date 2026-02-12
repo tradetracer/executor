@@ -88,35 +88,39 @@ class Executor:
         # Strategy logs per worker
         self.strategy_logs: dict[str, list] = {}
 
-    def start(self) -> bool:
+    def start(self) -> str | None:
         """
         Start the executor.
 
         Validates config and connects to broker.
 
         Returns:
-            True if started successfully, False otherwise.
+            None if started successfully, error message string otherwise.
         """
         # Validate config
         if not self.config.is_valid():
-            logger.error("Invalid config: api_key required")
-            return False
+            msg = "Invalid config: API key is required"
+            logger.error(msg)
+            return msg
 
         # Create and connect adapter
+        adapter_name = self.config.adapter
         try:
-            self.adapter = get_adapter(self.config.adapter, self.config.adapter_config)
+            self.adapter = get_adapter(adapter_name, self.config.adapter_config)
             if not self.adapter.connect():
-                logger.error(f"Failed to connect to {self.config.adapter} adapter")
-                return False
+                msg = f"{adapter_name}: failed to connect"
+                logger.error(msg)
+                return msg
         except Exception as e:
-            logger.error(f"Adapter error: {e}")
-            return False
+            msg = f"{adapter_name}: {e}"
+            logger.error(msg)
+            return msg
 
-        logger.info(f"Connected to {self.config.adapter} adapter")
+        logger.info(f"Connected to {adapter_name} adapter")
         logger.info(f"Poll interval: {self.config.poll_interval}s")
 
         self.running = True
-        return True
+        return None
 
     def stop(self) -> None:
         """Stop the executor and disconnect from broker."""
@@ -152,7 +156,11 @@ class Executor:
         prices: dict[str, Any] = {}
         for symbol in self.symbols:
             eod = self.eod_prices.get(symbol)
-            quote = self.adapter.fetch_quote(symbol, eod)
+            try:
+                quote = self.adapter.fetch_quote(symbol, eod)
+            except Exception as e:
+                logger.warning(f"{self.config.adapter}: {symbol} fetch_quote failed: {e}")
+                continue
             if quote:
                 prices[symbol] = {
                     "ohlcv": {
@@ -265,7 +273,7 @@ class Executor:
                     f"  Filled: {result['fill_shares']} @ ${result['fill_price']:.2f}"
                 )
             else:
-                logger.warning(f"  Failed: {result.get('error', 'Unknown error')}")
+                logger.warning(f"  {self.config.adapter}: {order['symbol']} {order['action']} failed: {result.get('error', 'Unknown error')}")
 
         # 9. Store new transactions for next tick
         self.transactions.add(new_transactions)
@@ -297,8 +305,9 @@ class Executor:
         signal.signal(signal.SIGTERM, handle_signal)
 
         # Start
-        if not self.start():
-            logger.error("Failed to start executor")
+        error = self.start()
+        if error:
+            logger.error(f"Failed to start executor: {error}")
             sys.exit(1)
 
         logger.info("Executor started, entering main loop")

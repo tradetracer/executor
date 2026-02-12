@@ -118,4 +118,4 @@ class Config:
         Returns:
             URL like "https://tradetracer.ai/api/models/tick".
         """
-        return f"{self.api_url}/api/models/tick"
+        return f"{self.api_url}/api/llmapi/models/tick"
