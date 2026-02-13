@@ -237,7 +237,7 @@ class Executor:
 
         # 7. Capture strategy logs per worker
         from datetime import datetime
-        ts = datetime.now().strftime("%y%m%d %H:%M:%S")
+        ts = datetime.now().strftime("%I:%M:%S %p")
         logs = data.get("logs", {})
         for symbol, lines in logs.items():
             if symbol not in self.strategy_logs:
