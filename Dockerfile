@@ -20,6 +20,7 @@ COPY web/ web/
 
 # Create data directory
 RUN mkdir -p /data
+ENV TT_CONFIG=/data/config.json
 
 # Expose web UI port
 EXPOSE 5000

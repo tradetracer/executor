@@ -77,7 +77,7 @@ docker run -v ./my-data:/data tradetracer/executor
 git clone https://github.com/tradetracer/executor.git
 cd executor
 pip install -r requirements.txt
-python -m web.app
+python run.py
 ```
 
 ### Run Tests

@@ -52,7 +52,7 @@ class Config:
     adapter_config: dict[str, Any] = field(default_factory=dict)
     api_url: str = DEFAULT_API_URL
     poll_interval: int = DEFAULT_POLL_INTERVAL
-    data_path: str = "/data"
+    data_path: str = ""
 
     def save(self, path: str | Path) -> None:
         """
@@ -99,7 +99,7 @@ class Config:
             adapter_config=data.get("adapter_config", {}),
             api_url=data.get("api_url", DEFAULT_API_URL),
             poll_interval=data.get("poll_interval", DEFAULT_POLL_INTERVAL),
-            data_path=data.get("data_path", "/data"),
+            data_path=data.get("data_path", str(Path(path).parent)),
         )
 
     def is_valid(self) -> bool:
@@ -118,4 +118,4 @@ class Config:
         Returns:
             URL like "https://tradetracer.ai/api/models/tick".
         """
-        return f"{self.api_url}/api/llmapi/models/tick"
+        return f"{self.api_url}/models/tick"

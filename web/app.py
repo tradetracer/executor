@@ -12,6 +12,7 @@ Example:
     ```
 """
 
+import os
 import threading
 from pathlib import Path
 from typing import Any
@@ -29,7 +30,13 @@ _executor_thread: threading.Thread | None = None
 _executor_lock = threading.Lock()
 
 
-def create_app(config_path: str = "/data/config.json") -> Flask:
+_DEFAULT_CONFIG = os.environ.get(
+    "TT_CONFIG",
+    str(Path.home() / ".tradetracer" / "config.json"),
+)
+
+
+def create_app(config_path: str = _DEFAULT_CONFIG) -> Flask:
     """
     Create Flask application.
 
@@ -98,6 +105,7 @@ def register_routes(app: Flask) -> None:
         if "poll_interval" in data:
             config.poll_interval = int(data["poll_interval"])
 
+        config.data_path = str(Path(app.config["CONFIG_PATH"]).parent)
         config.save(app.config["CONFIG_PATH"])
 
         return jsonify({"success": True}), 200
@@ -213,7 +221,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="TradeTracer Executor Web UI")
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--port", type=int, default=5000, help="Port to bind to")
-    parser.add_argument("--config", default="/data/config.json", help="Config path")
+    parser.add_argument("--config", default=_DEFAULT_CONFIG, help="Config file path (or set TT_CONFIG env var)")
     args = parser.parse_args()
 
     app = create_app(args.config)

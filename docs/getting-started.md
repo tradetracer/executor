@@ -22,7 +22,7 @@ Open [http://localhost:5000](http://localhost:5000) to configure.
 git clone https://github.com/tradetracer/executor.git
 cd executor
 pip install -r requirements.txt
-python -m web.app
+python run.py
 ```
 
 ## Persistence
