@@ -66,6 +66,7 @@
                             <span class="stat-value" id="error-count">0</span>
                         </div>
                     </div>
+                    <div id="status-banner" class="status-banner" style="display: none;"></div>
                 </section>
 
                 <!-- Workers Section -->
@@ -374,6 +375,15 @@
             if (status.error_count > lastKnownErrorCount && status.last_error) {
                 lastKnownErrorCount = status.error_count;
                 log(status.last_error, 'error');
+            }
+
+            // Show status banner (market closed, model stopped, etc.)
+            const banner = document.getElementById('status-banner');
+            if (status.status_message) {
+                banner.textContent = status.status_message;
+                banner.style.display = 'block';
+            } else {
+                banner.style.display = 'none';
             }
 
             if (status.last_tick_time) {

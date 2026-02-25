@@ -358,6 +358,19 @@ select {
     color: var(--text-primary);
 }
 
+/* Status banner */
+.status-banner {
+    margin-top: var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text-secondary);
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    text-align: center;
+}
+
 .stat-danger {
     background: var(--danger-light);
 }

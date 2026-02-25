@@ -80,6 +80,7 @@ class Executor:
         self.last_tick_time: float | None = None
         self.error_count = 0
         self.last_error: str | None = None
+        self.status_message: str | None = None
 
         # Tracked symbols and their EOD prices (from previous tick response)
         self.symbols: list[str] = []
@@ -207,28 +208,51 @@ class Executor:
             pool.shutdown(wait=False)
 
         if not response.ok:
-            # Parse error detail from response body
+            # Parse error code and message from response body
+            code = ""
             detail = ""
             try:
                 body = response.json()
                 if isinstance(body, dict):
-                    detail = body.get("detail") or body.get("error") or ""
-                if isinstance(detail, dict):
-                    detail = detail.get("error", str(detail))
+                    raw_detail = body.get("detail") or body.get("error") or ""
+                    if isinstance(raw_detail, dict):
+                        code = raw_detail.get("code", "")
+                        detail = raw_detail.get("error", str(raw_detail))
+                    else:
+                        detail = str(raw_detail)
             except Exception:
                 detail = response.text[:200]
-            error_msg = f"{response.status_code}: {detail}" if detail else f"{response.status_code}"
-            logger.error(f"Tick failed: {error_msg}")
-            self.error_count += 1
-            self.last_error = error_msg
-            return {"success": False, "error": error_msg}
+
+            # Handle known codes with appropriate log levels
+            if code == "MODEL_STOPPED":
+                logger.info("Model stopped")
+                self.status_message = "Model stopped"
+                return {"success": False, "error": "Model stopped", "code": code}
+            elif code == "MODEL_NOT_DEPLOYED":
+                logger.warning("Model not deployed")
+                self.status_message = "Model not deployed"
+                return {"success": False, "error": "Model not deployed", "code": code}
+            else:
+                error_msg = f"{response.status_code}: {detail}" if detail else f"{response.status_code}"
+                logger.error(error_msg)
+                self.error_count += 1
+                self.last_error = error_msg
+                return {"success": False, "error": error_msg}
 
         # 4. Clear reported transactions
         self.transactions.clear()
 
         # 5. Process response
         data = response.json()
+
+        # Handle MARKET_CLOSED — not an error, just skip
+        if data.get("code") == "MARKET_CLOSED":
+            logger.info("Market closed")
+            self.status_message = "Market closed"
+            return {"success": True, "tick": self.tick_count, "orders_received": 0, "orders_filled": 0, "duration_ms": int((time.time() - tick_start) * 1000)}
+
         orders = data.get("orders", [])
+        self.status_message = None
 
         # 6. Update tracked symbols and EOD prices from response
         self.eod_prices = data.get("prices", {})
@@ -354,6 +378,7 @@ class Executor:
             "adapter": self.config.adapter,
             "error_count": self.error_count,
             "last_error": self.last_error,
+            "status_message": self.status_message,
             "poll_interval": self.config.poll_interval,
             "workers": workers,
         }
