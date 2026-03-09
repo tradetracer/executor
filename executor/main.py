@@ -85,6 +85,7 @@ class Executor:
         # Tracked symbols and their EOD prices (from previous tick response)
         self.symbols: list[str] = []
         self.eod_prices: dict[str, float] = {}
+        self.warmup_symbols: set[str] = set()
 
         # Strategy logs per worker
         self.strategy_logs: dict[str, list] = {}
@@ -162,20 +163,28 @@ class Executor:
             except Exception as e:
                 logger.warning(f"{self.config.adapter}: {symbol} fetch_quote failed: {e}")
                 continue
-            if quote:
-                prices[symbol] = {
-                    "ohlcv": {
-                        "o": quote.get("open"),
-                        "h": quote.get("high"),
-                        "l": quote.get("low"),
-                        "c": quote.get("close"),
-                        "v": quote.get("volume"),
-                    },
-                    "bid": quote.get("bid"),
-                    "ask": quote.get("ask"),
-                    "time": int(time.time()),
-                }
-                logger.debug(f"Quote {symbol}: {quote.get('close', 'N/A')}")
+            if not quote:
+                continue
+
+            # Build bars array
+            if symbol in self.warmup_symbols:
+                try:
+                    bars = self.adapter.fetch_bars(symbol, 1000)
+                except Exception as e:
+                    logger.warning(f"{self.config.adapter}: {symbol} fetch_bars failed: {e}")
+                    bars = []
+                if not bars:
+                    bars = [_quote_to_bar(quote)]
+                logger.info(f"Warmup {symbol}: {len(bars)} bars")
+            else:
+                bars = [_quote_to_bar(quote)]
+
+            prices[symbol] = {
+                "bars": bars,
+                "bid": quote.get("bid"),
+                "ask": quote.get("ask"),
+            }
+            logger.debug(f"Quote {symbol}: {quote.get('close', 'N/A')}")
 
         # 3. Call TradeTracer /tick endpoint (hard 5s timeout)
         def _post():
@@ -254,10 +263,13 @@ class Executor:
         orders = data.get("orders", [])
         self.status_message = None
 
-        # 6. Update tracked symbols and EOD prices from response
+        # 6. Update tracked symbols, EOD prices, and warmup list from response
         self.eod_prices = data.get("prices", {})
         self.symbols = list(self.eod_prices.keys())
+        self.warmup_symbols = set(data.get("warmup_symbols", []))
         logger.info(f"Received {len(orders)} orders, tracking {len(self.symbols)} symbols")
+        if self.warmup_symbols:
+            logger.info(f"Warmup requested: {', '.join(self.warmup_symbols)}")
 
         # 7. Capture strategy logs per worker
         from datetime import datetime
@@ -382,6 +394,18 @@ class Executor:
             "poll_interval": self.config.poll_interval,
             "workers": workers,
         }
+
+
+def _quote_to_bar(quote: dict[str, Any]) -> dict[str, Any]:
+    """Convert an adapter Quote dict to a bar dict for the bars array."""
+    return {
+        "t": quote.get("time") or int(time.time()),
+        "o": quote.get("open"),
+        "h": quote.get("high"),
+        "l": quote.get("low"),
+        "c": quote.get("close"),
+        "v": quote.get("volume"),
+    }
 
 
 def main() -> None:

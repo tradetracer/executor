@@ -270,8 +270,8 @@ class TestExecutor:
         assert result["success"] is False
 
     @patch("executor.main.requests.post")
-    def test_tick_sends_prices_in_api_format(self, mock_post: Mock, executor: Executor):
-        """Tick maps adapter quotes to API ohlcv format."""
+    def test_tick_sends_prices_in_bars_format(self, mock_post: Mock, executor: Executor):
+        """Tick maps adapter quotes to API bars format."""
         mock_post.return_value = Mock(
             ok=True,
             json=Mock(return_value={"orders": [], "prices": {"AAPL": 186.5}}),
@@ -289,6 +289,7 @@ class TestExecutor:
                 "volume": 1234567,
                 "bid": 186.45,
                 "ask": 186.55,
+                "time": 1707500100,
             }
         )
 
@@ -297,16 +298,19 @@ class TestExecutor:
 
         sent_data = mock_post.call_args.kwargs["json"]
         price = sent_data["prices"]["AAPL"]
-        assert price["ohlcv"] == {
-            "o": 185.0,
-            "h": 187.5,
-            "l": 184.25,
-            "c": 186.5,
-            "v": 1234567,
-        }
+        assert price["bars"] == [
+            {
+                "t": 1707500100,
+                "o": 185.0,
+                "h": 187.5,
+                "l": 184.25,
+                "c": 186.5,
+                "v": 1234567,
+            }
+        ]
         assert price["bid"] == 186.45
         assert price["ask"] == 186.55
-        assert "time" in price
+        assert "ohlcv" not in price
 
     @patch("executor.main.requests.post")
     def test_tick_skips_symbols_with_no_quote(self, mock_post: Mock, executor: Executor):
@@ -339,6 +343,55 @@ class TestExecutor:
         executor.stop()
 
         assert set(executor.symbols) == {"AAPL", "TSLA"}
+
+    @patch("executor.main.requests.post")
+    def test_tick_stores_warmup_symbols(self, mock_post: Mock, executor: Executor):
+        """Tick captures warmup_symbols from response."""
+        mock_post.return_value = Mock(
+            ok=True,
+            json=Mock(return_value={
+                "orders": [],
+                "prices": {"AAPL": 186.5},
+                "warmup_symbols": ["TSLA"],
+            }),
+        )
+
+        executor.start()
+        executor.tick()
+        executor.stop()
+
+        assert executor.warmup_symbols == {"TSLA"}
+
+    @patch("executor.main.requests.post")
+    def test_tick_sends_warmup_bars(self, mock_post: Mock, executor: Executor):
+        """Warmup symbols get multiple bars from fetch_bars."""
+        mock_post.return_value = Mock(
+            ok=True,
+            json=Mock(return_value={"orders": [], "prices": {"AAPL": 186.5}}),
+        )
+
+        executor.start()
+        executor.symbols = ["AAPL"]
+        executor.eod_prices = {"AAPL": 186.5}
+        executor.warmup_symbols = {"AAPL"}
+
+        fake_bars = [
+            {"t": 1707500040, "o": 185.0, "h": 185.5, "l": 184.9, "c": 185.3, "v": 100},
+            {"t": 1707500100, "o": 185.3, "h": 185.6, "l": 185.2, "c": 185.5, "v": 200},
+        ]
+        executor.adapter.fetch_bars = Mock(return_value=fake_bars)
+        executor.adapter.fetch_quote = Mock(
+            return_value={"close": 185.5, "bid": 185.45, "ask": 185.55, "time": 1707500100}
+        )
+
+        executor.tick()
+        executor.stop()
+
+        sent_data = mock_post.call_args.kwargs["json"]
+        price = sent_data["prices"]["AAPL"]
+        assert price["bars"] == fake_bars
+        assert price["bid"] == 185.45
+        assert price["ask"] == 185.55
 
     def test_tick_increments_counter(self, executor: Executor):
         """Each tick increments counter."""

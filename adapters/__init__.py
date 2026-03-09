@@ -31,7 +31,7 @@ Example:
 
 from typing import Any
 
-from .base import BaseAdapter, ConfigField, FillResult, Order, Quote
+from .base import Bar, BaseAdapter, ConfigField, FillResult, Order, Quote
 from .sandbox import SandboxAdapter
 
 # Adapter registry
@@ -113,6 +113,7 @@ def list_adapters() -> list[str]:
 
 
 __all__ = [
+    "Bar",
     "BaseAdapter",
     "ConfigField",
     "FillResult",

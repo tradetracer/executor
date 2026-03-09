@@ -180,6 +180,30 @@ class TestIBKRAdapter:
         assert result["bid"] == 186.45
         assert result["ask"] == 186.55
 
+    def test_fetch_quote_uses_broker_timestamp(self, adapter, mock_ib):
+        """fetch_quote returns the broker's timestamp, not local time."""
+        from datetime import datetime, timezone
+
+        broker_dt = datetime(2025, 3, 10, 14, 30, 0, tzinfo=timezone.utc)
+
+        mock_ticker = MagicMock()
+        mock_ticker.open = 185.00
+        mock_ticker.high = 187.50
+        mock_ticker.low = 184.25
+        mock_ticker.last = 186.50
+        mock_ticker.volume = 1000000
+        mock_ticker.bid = 186.45
+        mock_ticker.ask = 186.55
+        mock_ticker.time = broker_dt
+
+        mock_ib.reqMktData.return_value = mock_ticker
+        mock_ib.qualifyContracts.return_value = None
+
+        with patch.dict("sys.modules", {"ib_insync": MagicMock()}):
+            result = adapter.fetch_quote("AAPL", 185.0)
+
+        assert result["time"] == int(broker_dt.timestamp())
+
     def test_fetch_quote_not_connected(self):
         """fetch_quote returns None when not connected."""
         with patch.dict("sys.modules", {"ib_insync": MagicMock()}):

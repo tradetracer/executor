@@ -21,8 +21,9 @@ Example:
 """
 
 import random
+import time
 
-from .base import BaseAdapter, ConfigField, FillResult, Quote
+from .base import Bar, BaseAdapter, ConfigField, FillResult, Quote
 
 
 class SandboxAdapter(BaseAdapter):
@@ -149,4 +150,43 @@ class SandboxAdapter(BaseAdapter):
             "volume": random.randint(100, 5000),
             "bid": bid,
             "ask": ask,
+            "time": int(time.time()),
         }
+
+    def fetch_bars(self, symbol: str, count: int) -> list[Bar]:
+        """
+        Generate simulated historical bars via random walk.
+
+        Walks backwards from the last known price (or a neutral base)
+        to produce ``count`` 1-minute bars ending at the current time.
+        """
+        base = self._last_prices.get(symbol)
+        if not base:
+            return []
+
+        now = int(time.time())
+        bars: list[Bar] = []
+        price = base
+
+        # Walk backwards to generate prices, then reverse
+        prices = [price]
+        for _ in range(count - 1):
+            step = random.uniform(-0.003, 0.003)
+            price = round(price / (1 + step), 2)
+            prices.append(price)
+        prices.reverse()
+
+        for i, p in enumerate(prices):
+            t = now - (len(prices) - 1 - i) * 60
+            high = round(p * (1 + random.uniform(0, 0.002)), 2)
+            low = round(p * (1 - random.uniform(0, 0.002)), 2)
+            bars.append({
+                "t": t,
+                "o": round(p + random.uniform(-0.1, 0.1), 2),
+                "h": high,
+                "l": low,
+                "c": p,
+                "v": random.randint(100, 5000),
+            })
+
+        return bars

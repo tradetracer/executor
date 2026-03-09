@@ -62,12 +62,27 @@ class ConfigField(TypedDict, total=False):
     options: list[dict[str, str]]
 
 
+class Bar(TypedDict, total=False):
+    """
+    Single OHLCV bar with a timestamp.
+
+    Used in the ``bars`` array sent to TradeTracer.
+    """
+
+    t: int
+    o: float | None
+    h: float | None
+    l: float | None
+    c: float | None
+    v: int | None
+
+
 class Quote(TypedDict, total=False):
     """
     Price quote for a symbol.
 
     Returned by `fetch_quote()`. The executor maps this into the
-    TradeTracer API format (`ohlcv` with `bid`/`ask`) before sending.
+    TradeTracer ``bars`` format (with `bid`/`ask`) before sending.
     All fields are optional — return whatever the broker provides.
     """
 
@@ -78,6 +93,7 @@ class Quote(TypedDict, total=False):
     volume: int | None
     bid: float | None
     ask: float | None
+    time: int | None
 
 
 class FillResult(TypedDict, total=False):
@@ -326,6 +342,28 @@ class BaseAdapter(ABC):
                 return {"close": price, "bid": price - 0.01, "ask": price + 0.01}
             ```
         """
+
+    def fetch_bars(self, symbol: str, count: int) -> list[Bar]:
+        """
+        Fetch historical OHLCV bars for warmup.
+
+        Called by the executor when the strategy-runner requests warmup
+        data for a symbol. The executor sends the returned bars in the
+        ``bars`` array instead of a single bar derived from ``fetch_quote``.
+
+        Override this method if your adapter can provide historical bars.
+        The default implementation returns an empty list, which causes the
+        executor to fall back to a single bar from ``fetch_quote``.
+
+        Args:
+            symbol: Stock ticker symbol (e.g., ``"AAPL"``). Always uppercase.
+            count: Maximum number of bars to return (up to 1000).
+
+        Returns:
+            List of Bar dicts with keys ``t``, ``o``, ``h``, ``l``, ``c``, ``v``,
+            ordered oldest-first. Empty list if historical data is unavailable.
+        """
+        return []
 
     def execute_order(self, order: Order) -> FillResult:
         """

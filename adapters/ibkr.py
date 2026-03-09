@@ -31,9 +31,10 @@ Note:
     Or use the optional dependency: pip install tradetracer-executor[ibkr]
 """
 
+import time
 from typing import Any
 
-from .base import BaseAdapter, ConfigField, FillResult, Quote
+from .base import Bar, BaseAdapter, ConfigField, FillResult, Quote
 
 
 class IBKRAdapter(BaseAdapter):
@@ -252,6 +253,14 @@ class IBKRAdapter(BaseAdapter):
             if not _is_valid(ticker.last) and not _is_valid(ticker.bid):
                 return None
 
+            # Use broker timestamp if available, fall back to local time
+            ts = int(time.time())
+            if hasattr(ticker, "time") and ticker.time is not None:
+                try:
+                    ts = int(ticker.time.timestamp())
+                except (AttributeError, TypeError):
+                    pass
+
             return {
                 "open": _safe_float(ticker.open),
                 "high": _safe_float(ticker.high),
@@ -260,11 +269,57 @@ class IBKRAdapter(BaseAdapter):
                 "volume": _safe_int(ticker.volume),
                 "bid": _safe_float(ticker.bid),
                 "ask": _safe_float(ticker.ask),
+                "time": ts,
             }
 
         except Exception as e:
             print(f"[WARN] Failed to get quote for {symbol}: {e}")
             return None
+
+    def fetch_bars(self, symbol: str, count: int) -> list[Bar]:
+        """
+        Fetch historical 1-minute bars from TWS/Gateway.
+
+        Args:
+            symbol: Stock symbol (e.g., "AAPL").
+            count: Maximum number of bars to return (up to 1000).
+
+        Returns:
+            List of Bar dicts ordered oldest-first, or empty list.
+        """
+        if not self._ib or not self._ib.isConnected():
+            return []
+
+        try:
+            contract = self._get_contract(symbol)
+            self._ib.qualifyContracts(contract)
+
+            # 1000 1-min bars ≈ 2.6 trading days
+            raw_bars = self._ib.reqHistoricalData(
+                contract,
+                endDateTime="",
+                durationStr="3 D",
+                barSizeSetting="1 min",
+                whatToShow="TRADES",
+                useRTH=True,
+            )
+
+            bars: list[Bar] = []
+            for b in raw_bars[-count:]:
+                ts = int(b.date.timestamp()) if hasattr(b.date, "timestamp") else int(b.date)
+                bars.append({
+                    "t": ts,
+                    "o": _safe_float(b.open),
+                    "h": _safe_float(b.high),
+                    "l": _safe_float(b.low),
+                    "c": _safe_float(b.close),
+                    "v": _safe_int(b.volume),
+                })
+            return bars
+
+        except Exception as e:
+            print(f"[WARN] Failed to get bars for {symbol}: {e}")
+            return []
 
 
 def _is_valid(value: Any) -> bool:
